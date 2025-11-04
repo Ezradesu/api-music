@@ -1,0 +1,10 @@
+# Abaikan dependensi, file git, dan file env lokal
+node_modules
+.git
+.env
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Abaikan folder upload (jika Anda pakai local storage untuk Kriteria 2)
+uploads

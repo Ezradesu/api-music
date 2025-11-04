@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  # 1. Layanan API (Aplikasi Node.js Anda)
+  app:
+    build: .
+    container_name: openmusic_app
+    ports:
+      - "${PORT}:${PORT}" # Ambil dari .env, default 5000:5000
+    depends_on:
+      # Kita hanya butuh RabbitMQ dan Redis untuk running
+      - rabbitmq
+      - redis
+    environment:
+      # Koneksi Database sekarang MENGAMBIL SEMUA DARI .env
+      # Pastikan .env Anda berisi kredensial Supabase
+      PGHOST: ${PGHOST}
+      PGUSER: ${PGUSER}
+      PGPASSWORD: ${PGPASSWORD}
+      PGDATABASE: ${PGDATABASE}
+      PGPORT: ${PGPORT}
+      HOST: "0.0.0.0" # Penting agar Hapi bisa diakses dari luar kontainer
+      PORT: ${PORT}
+
+      # Kriteria 1: RabbitMQ Server (mengarah ke service 'rabbitmq')
+      RABBITMQ_SERVER: amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@rabbitmq
+
+      # Kriteria 1: SMTP (Nodemailer)
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+
+      # Kriteria 4: Redis Server (mengarah ke service 'redis')
+      REDIS_SERVER: redis
+
+      # Variabel lain dari .env Anda
+      ACCESS_TOKEN_KEY: ${ACCESS_TOKEN_KEY}
+      REFRESH_TOKEN_KEY: ${REFRESH_TOKEN_KEY}
+    volumes:
+      # Sinkronisasi kode lokal ke kontainer (untuk hot-reload)
+      - .:/usr/src/app
+      # Hindari menimpa node_modules di dalam kontainer
+      - /usr/src/app/node_modules
+      # Kriteria 2: Volume untuk upload file lokal
+      - ./uploads:/usr/src/app/uploads
+    # Gunakan "npm run start:dev" jika Anda sudah menambahkannya di package.json
+    command: sh -c "npm run migrate && npm run dev"
+
+  # 2. Layanan Message Broker (RabbitMQ) - Kriteria 1
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: openmusic_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672" # Port AMQP (untuk aplikasi)
+      - "15672:15672" # Port Web UI Management
+
+  # 3. Layanan Caching (Redis) - Kriteria 4
+  redis:
+    image: redis:6-alpine
+    container_name: openmusic_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+# Volume untuk persistensi data (hanya untuk redis)
+volumes:
+  redis_data:

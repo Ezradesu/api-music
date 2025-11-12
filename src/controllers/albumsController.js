@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { nanoid } from "nanoid";
+import StorageService from "../services/storage/StorageService.js";
 
 export const addAlbum = async (req, res) => {
   try {
@@ -39,13 +40,50 @@ export const getAllAlbums = async (req, res) => {
   }
 };
 
+export const postAlbumCover = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { file } = req; // file dari multer
+
+    // Cek dulu apakah album ada
+    const albumRes = await pool.query(
+      "SELECT id, cover_url FROM albums WHERE id = $1",
+      [id]
+    );
+    if (albumRes.rowCount === 0) {
+      return res
+        .status(404)
+        .json({ status: "fail", message: "Album not found" });
+    }
+
+    const storageService = new StorageService();
+    const fileUrl = await storageService.writeFile(file.buffer, file.mimetype);
+
+    // Update cover_url di database
+    await pool.query("UPDATE albums SET cover_url = $1 WHERE id = $2", [
+      fileUrl,
+      id,
+    ]);
+
+    // (Opsional: Hapus file lama jika ada)
+    // if (albumRes.rows[0].cover_url) { ... logika hapus file lama ... }
+
+    return res.status(201).json({
+      status: "success",
+      message: "Sampul berhasil diunggah",
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export const getAlbumById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Ambil data album
+    // Ambil data album (TAMBAHKAN cover_url)
     const albumResult = await pool.query(
-      "SELECT id, name, year FROM albums WHERE id = $1",
+      "SELECT id, name, year, cover_url FROM albums WHERE id = $1", // <-- MODIFIKASI QUERY
       [id]
     );
 
@@ -62,8 +100,12 @@ export const getAlbumById = async (req, res) => {
     );
 
     // Gabungkan hasilnya
+    const albumData = albumResult.rows[0];
     const album = {
-      ...albumResult.rows[0],
+      id: albumData.id,
+      name: albumData.name,
+      year: albumData.year,
+      coverUrl: albumData.cover_url || null, // <-- MODIFIKASI HASIL
       songs: songsResult.rows,
     };
 
@@ -76,7 +118,6 @@ export const getAlbumById = async (req, res) => {
     res.status(500).json({ status: "error", message: "Internal server error" });
   }
 };
-
 export const updateAlbumById = async (req, res) => {
   try {
     const { id } = req.params;

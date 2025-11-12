@@ -32,7 +32,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
 
       # Kriteria 4: Redis Server (mengarah ke service 'redis')
-      REDIS_SERVER: redis
+      REDIS_SERVER: ${REDIS_SERVER}
 
       # Variabel lain dari .env Anda
       ACCESS_TOKEN_KEY: ${ACCESS_TOKEN_KEY}
@@ -41,7 +41,7 @@ services:
       # Sinkronisasi kode lokal ke kontainer (untuk hot-reload)
       - .:/usr/src/app
       # Hindari menimpa node_modules di dalam kontainer
-      - /usr/src/app/node_modules
+      - node_modules:/usr/src/app/node_modules
       # Kriteria 2: Volume untuk upload file lokal
       - ./uploads:/usr/src/app/uploads
     # Gunakan "npm run start:dev" jika Anda sudah menambahkannya di package.json
@@ -70,3 +70,4 @@ services:
 # Volume untuk persistensi data (hanya untuk redis)
 volumes:
   redis_data:
+  node_modules:
